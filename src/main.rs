@@ -26,24 +26,24 @@ const WINDOW_WIDTH: u32 = WIDTH ;
 const WINDOW_HEIGHT:u32 = HEIGHT;
 const MAP_START:i32 = WIDTH_I32 * (HEIGHT_I32 - 1);
 
-const SPRED_ORDER:[i32;8] = [1,0,0,1,-1,0,0,-1];
+const SPRED_ORDER:[i32;8] = [0,1,-1,0,0,-1,1,0];
 
 
-//nating, sand, water,smoke ,wood, fire,oil,plant;
-const ELEMENTS:usize = 8;
-
+//nating, sand, water,smoke ,wood, fire,oil,plant,lava;
+const ELEMENTS:usize = 9;
+const ELEMENTS_U8:u8 = ELEMENTS as u8;
 
 // need color cange
-const COLORS:[u8;ELEMENTS * 3] = [0,0,0,194, 178, 128,212,241,249, 132, 136, 132, 149
-,69,32,255,0,0,55,58,54,0,255,0];
+const COLORS:[u8;ELEMENTS * 3 + 3] = [0,0,0,194, 178, 128,212,241,249, 132, 136, 132, 149
+,69,32,255,0,0,55,58,54,0,255,0,255,140,0,255,0,0];
 
-const WEIGHTS:[i8;ELEMENTS] = [-100,1,0,-2,100,100,-1,100];
+const WEIGHTS:[i8;ELEMENTS] = [-100,2,0,-2,100,100,1,100,0];
 
 const FLAMES_NUM:usize = 2;
 const FLAMES_RESOLT:[u8;FLAMES_NUM] = [5,7];
 const FALMEBILTY:[f64;ELEMENTS * FLAMES_NUM] =
-[0.05f64,0.0f64,0.0f64,0.0f64,0.3f64,0.0f64,0.99f64,0.6f64,//catch fire;
-0.0f64,0.0f64,0.6f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64];//catch plant;
+[0.05f64,0.0f64,0.0f64,0.0f64,0.3f64,0.0f64,0.99f64,0.6f64,0.0f64,//catch fire;
+0.0f64,0.0f64,0.6f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64];//catch plant;
 
 const KEYS:[Scancode;10] = [Scancode::Num0,Scancode::Num1,Scancode::Num2
 ,Scancode::Num3,Scancode::Num4,Scancode::Num5
@@ -57,7 +57,7 @@ fn main() {
     for i in 0..WIDTH_I32/100 {
         circle(&mut  matrix,i * 120,HEIGHT_I32/2,70,2);   
     }
-    circle(&mut  matrix,3 * 120,HEIGHT_I32/2,1,7);   
+    circle(&mut  matrix,3 * 120,(HEIGHT_I32/4)*1,20,7);   
 
     let mut input_master = Input::new();
 
@@ -92,7 +92,7 @@ fn main() {
         input_master.update(&event_master);
 
         update(&mut matrix,&mut input_master);
-        render(&matrix, &mut canvas, &texture_creator);
+        render(&matrix,&input_master, &mut canvas, &texture_creator);
 
         frames += 1;
         let elapsed_time = last_frame_time.elapsed();
@@ -134,6 +134,10 @@ fn update(matrix:&mut [Partical],input:&mut Input){
                 partical_move(&[0, -1, -dir, -1, dir, -1, dir, 0, -dir, 0], matrix, x, y)},
 
                 7 => partical_spred(matrix,1,&mut random, x, y,0.0f64,0),
+
+                8 => {if random.next_bool(){-1}else{1};
+                partical_move(&[0, -1, -dir, -1, dir, -1, dir, 0, -dir, 0], matrix, x, y);
+                partical_spred(matrix,0,&mut random, x, y,0.0f64,3)},
                 _ => {}
             }
         }
@@ -219,9 +223,21 @@ fn circle(matrix:&mut [Partical],x:i32,y:i32,r:i32,partical_type:u8){
     }
 }
 
-fn render(bit_map:&[Partical],canvas:&mut Canvas<Window>,texture_creator:&TextureCreator<WindowContext>){
+fn circle_layer(pixel_data:&mut [u8;PIXELARRAYSIZE],x:i32,y:i32,r:i32){
+
+    for X in (-r + x)..(r + x){
+        for Y in (-r + y)..(r + y){
+            if /*(X - x) * (X - x) + (Y - y) * (Y - y) == r * r &&*/ legal_poaint(X, Y){
+                pixel_data[pos_to_array_paint(X, Y) * 3] = 255;
+            }
+        }
+    }
+}
+
+fn render(bit_map:&[Partical],input:&Input,canvas:&mut Canvas<Window>,texture_creator:&TextureCreator<WindowContext>){
     let pixel_data:&mut [u8;PIXELARRAYSIZE] = &mut [0u8;PIXELARRAYSIZE];
     pixel_array_from_bit_map(bit_map,pixel_data);
+    circle_layer(pixel_data,input.mouse_x,input.mouse_y,input.radios);
 
     let texture = create_texture_from_pixels(texture_creator, pixel_data, WIDTH,HEIGHT);
     canvas.set_draw_color(sdl2::pixels::Color::RGB(0, 0, 0));
