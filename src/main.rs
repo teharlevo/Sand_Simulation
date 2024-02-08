@@ -1,7 +1,7 @@
 #[warn(non_snake_case)]
 use std::{fs, usize};
 use std::time::{Instant, Duration};
-use  std::marker::Copy;
+
 use sdl2::keyboard::Keycode;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, Canvas};
@@ -12,37 +12,52 @@ use sdl2::video::{Window, WindowContext};
 
 use rand::{thread_rng, RngCore};
 
+use sdl2::mouse::MouseButton;
+use sdl2::keyboard::Scancode;
+
 const WIDTH: u32 = 500;
 const HEIGHT: u32 = 500;
-const WIDTH_ISIZE: isize = WIDTH as isize;
-const HEIGHT_ISIZE: isize = HEIGHT as isize;
+const WIDTH_I32: i32 = WIDTH as i32;
+const HEIGHT_I32: i32 = HEIGHT as i32;
 const MATRIXSIZE:usize = (HEIGHT * WIDTH) as usize;
 const PIXELARRAYSIZE:usize = MATRIXSIZE * 4;
 
 const WINDOW_WIDTH: u32 = WIDTH ;
 const WINDOW_HEIGHT:u32 = HEIGHT;
-const MAP_START:isize = WIDTH_ISIZE * (HEIGHT_ISIZE - 1);
+const MAP_START:i32 = WIDTH_I32 * (HEIGHT_I32 - 1);
 
-const SPRED_ORDER:[isize;8] = [1,0,-1,0,0,1,0,-1];
+const SPRED_ORDER:[i32;8] = [1,0,0,1,-1,0,0,-1];
 
 
-//nating, sand, water,smoke ,wood, fire;
-const ELEMENTS:usize = 6;
+//nating, sand, water,smoke ,wood, fire,oil,plant;
+const ELEMENTS:usize = 8;
+
 
 // need color cange
-const COLORS:[u8;ELEMENTS * 3] = [0,0,0,194, 178, 128,212,241,249, 132, 136, 132, 149,69,32,255,0,0];
+const COLORS:[u8;ELEMENTS * 3] = [0,0,0,194, 178, 128,212,241,249, 132, 136, 132, 149
+,69,32,255,0,0,55,58,54,0,255,0];
 
-const WEIGHTS:[i8;ELEMENTS] = [-100,1,0,-1,100,100];
+const WEIGHTS:[i8;ELEMENTS] = [-100,1,0,-2,100,100,-1,100];
+
+const FLAMES_NUM:usize = 2;
+const FLAMES_RESOLT:[u8;FLAMES_NUM] = [5,7];
+const FALMEBILTY:[f64;ELEMENTS * FLAMES_NUM] =
+[0.05f64,0.0f64,0.0f64,0.0f64,0.3f64,0.0f64,0.99f64,0.6f64,//catch fire;
+0.0f64,0.0f64,0.6f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64];//catch plant;
+
+const KEYS:[Scancode;10] = [Scancode::Num0,Scancode::Num1,Scancode::Num2
+,Scancode::Num3,Scancode::Num4,Scancode::Num5
+,Scancode::Num6,Scancode::Num7,Scancode::Num8,Scancode::Num9];
 fn main() {
     let mut matrix = vec![];
     for _ in 0..MATRIXSIZE {
-        matrix.push(Partical{p_type:0,tic:true});
+        matrix.push(Partical{p_type:0,tic:true,intrcact_tic:true});
     }
 
-    for i in 0..WIDTH_ISIZE/100 {
-        circle(&mut  matrix,i * 120,HEIGHT_ISIZE/2,70,4);   
+    for i in 0..WIDTH_I32/100 {
+        circle(&mut  matrix,i * 120,HEIGHT_I32/2,70,2);   
     }
-    circle(&mut  matrix,3 * 120,HEIGHT_ISIZE/2,1,5);   
+    circle(&mut  matrix,3 * 120,HEIGHT_I32/2,1,7);   
 
     let mut input_master = Input::new();
 
@@ -63,7 +78,7 @@ fn main() {
     let mut last_frame_time = Instant::now();
     let mut fps_counter = 0;
     let mut frames = 0;
-    
+
     'mainloop: loop {
         for event in event_master.poll_iter() {
             match event {
@@ -75,7 +90,8 @@ fn main() {
             }
         }
         input_master.update(&event_master);
-        update(&mut matrix);
+
+        update(&mut matrix,&mut input_master);
         render(&matrix, &mut canvas, &texture_creator);
 
         frames += 1;
@@ -89,17 +105,17 @@ fn main() {
     }
 }
 
-fn update(matrix:&mut [Partical]){
+fn update(matrix:&mut [Partical],input:&mut Input){
 
+    if input.mouse_click[0]{
+        circle(matrix,input.mouse_x,input.mouse_y,input.radios,input.element);   
+    }
     let mut rng = thread_rng();
     let mut random = Random::new(rng.next_u64());
-    matrix[pos_to_array_paint((WIDTH_ISIZE/4)*3, HEIGHT_ISIZE - 1)].p_type = 1;
-    matrix[pos_to_array_paint((WIDTH_ISIZE/4)*1, HEIGHT_ISIZE - 1)].p_type = 2;
-    matrix[pos_to_array_paint((WIDTH_ISIZE/4)*2, HEIGHT_ISIZE/4)].p_type = 3;
 
-    for y in 0..HEIGHT_ISIZE{
-
-        for x in 0..WIDTH_ISIZE{
+    for y in 0..HEIGHT_I32{
+        //let dir_x:Vec<i32> = {if random.next_bool(){(0..WIDTH_I32).collect()}else{(0..WIDTH_I32).rev().collect()}};
+        for x in 0..WIDTH_I32{
             let dir  = 1;
             let index = pos_to_array_paint(x, y);
             match matrix[index].p_type {
@@ -112,27 +128,33 @@ fn update(matrix:&mut [Partical]){
                 3 => {let dir ={if random.next_bool(){-1}else{1}};
                 partical_move(&[0, 1, -dir, 1, dir, 1, dir, 0, -dir, 0], matrix, x, y)},
 
-                5 => partical_spred(matrix,&mut random, x, y),
+                5 => partical_spred(matrix,0,&mut random, x, y,0.2f64,3),
+
+                6 => {if random.next_bool(){-1}else{1};
+                partical_move(&[0, -1, -dir, -1, dir, -1, dir, 0, -dir, 0], matrix, x, y)},
+
+                7 => partical_spred(matrix,1,&mut random, x, y,0.0f64,0),
                 _ => {}
             }
         }
     }
 
     for i in 0..MATRIXSIZE{
-            matrix[i].tic = false;
+        matrix[i].tic = false;
+        matrix[i].intrcact_tic = false;
     }
 }
 
-fn pos_to_array_paint(x:isize,y:isize) ->usize{
+fn pos_to_array_paint(x:i32,y:i32) ->usize{
     return (MAP_START
-    + x - y * WIDTH_ISIZE)as usize;
+    + x - y * WIDTH_I32)as usize;
 }
 
-fn legal_poaint(x:isize,y:isize) -> bool{
-    return x >= 0 && x < WIDTH_ISIZE && y >= 0 && y < HEIGHT_ISIZE;
+fn legal_poaint(x:i32,y:i32) -> bool{
+    return x >= 0 && x < WIDTH_I32 && y >= 0 && y < HEIGHT_I32;
 }
 
-fn partical_move(order:&[isize],matrix:&mut [Partical],x:isize,y:isize){
+fn partical_move(order:&[i32],matrix:&mut [Partical],x:i32,y:i32){
 
     let point = pos_to_array_paint(x, y);
     if matrix[point].tic{
@@ -144,44 +166,49 @@ fn partical_move(order:&[isize],matrix:&mut [Partical],x:isize,y:isize){
         let intercting_point = pos_to_array_paint(new_x, new_y);
 
         if legal_poaint(new_x, new_y) 
-        && WEIGHTS[matrix[intercting_point].p_type as usize] < WEIGHTS[matrix[point].p_type as usize]{
+        && (matrix[intercting_point].p_type == 0 || (WEIGHTS[matrix[intercting_point].p_type as usize] < WEIGHTS[matrix[point].p_type as usize]
+        && !matrix[intercting_point].intrcact_tic && new_y - y == -1)){
             matrix[point].tic = true;
+            matrix[intercting_point].intrcact_tic = true;
             matrix.swap(point, intercting_point);
             break;
         }
     }
 }
 
-fn partical_spred(matrix:&mut [Partical],r:&mut Random,x:isize,y:isize){
+fn partical_spred(matrix:&mut [Partical],flameabilty_type:usize,r:&mut Random,x:i32,y:i32
+    ,chance:f64,new_type:u8){
 
     let point = pos_to_array_paint(x, y);
     if matrix[point].tic{
         return;
     }
     for i in 0..SPRED_ORDER.len()/2 { 
-        if r.next_bool(){
-            let new_x = x + SPRED_ORDER[i * 2];
-            let new_y = y + SPRED_ORDER[i * 2 + 1];
-            let intercting_point = pos_to_array_paint(new_x, new_y);
+        let new_x = x + SPRED_ORDER[i * 2];
+        let new_y = y + SPRED_ORDER[i * 2 + 1];
+        let intercting_point = pos_to_array_paint(new_x, new_y);
 
-            if legal_poaint(new_x, new_y) && matrix[intercting_point].p_type == 4 {
-                matrix[intercting_point].p_type = 5;
-                matrix[intercting_point].tic = true;
-            }
+        if legal_poaint(new_x, new_y) && r.next_bool_chance(
+            FALMEBILTY[matrix[intercting_point].p_type as usize + flameabilty_type * ELEMENTS]
+        ){
+            matrix[intercting_point].p_type = FLAMES_RESOLT[flameabilty_type];
+            matrix[intercting_point].tic = true;
         }
     }
-    if r.next_bool(){
-        matrix[point].p_type = 3;
+    if r.next_bool_chance(chance){
+        matrix[pos_to_array_paint(x, y)].p_type = 3;
     }
+
 }
 
 //#[derive(Clone,Copy)]
 struct Partical{
     p_type:u8,
     tic:bool,
+    intrcact_tic:bool,
 }
 
-fn circle(matrix:&mut [Partical],x:isize,y:isize,r:isize,partical_type:u8){
+fn circle(matrix:&mut [Partical],x:i32,y:i32,r:i32,partical_type:u8){
 
     for X in (-r + x)..(r + x){
         for Y in (-r + y)..(r + y){
@@ -234,27 +261,42 @@ fn create_texture_from_pixels<'a>(
 }
 
 struct Input {
-    mouse_click: bool,
+    mouse_click: [bool;3],
     mouse_x:i32,
     mouse_y:i32,
+    element:u8,
+    radios:i32,
 }
 
 impl Input {
     
     fn new() -> Self {
-        Input { mouse_click:false,
+        Input { mouse_click:[false;3],
         mouse_x:0,
-        mouse_y:0,}
+        mouse_y:0,
+        element:1,
+        radios:50,}
     }
 
     fn reset(&mut self){
-        self.mouse_click = false;
+        self.mouse_click = [false,false,false];
         self.mouse_x = 0;
         self.mouse_y = 0;
     }
 
     fn update(&mut self,e: &sdl2::EventPump){
-        self.reset();
+        self.mouse_click[0] = e.mouse_state().is_mouse_button_pressed(MouseButton::Left);
+        self.mouse_click[1] = e.mouse_state().is_mouse_button_pressed(MouseButton::Middle);
+        self.mouse_click[2] = e.mouse_state().is_mouse_button_pressed(MouseButton::Right);
+        self.mouse_x = e.mouse_state().x();
+        self.mouse_y = HEIGHT_I32 - e.mouse_state().y();
+
+        for i in 0..ELEMENTS{
+            if e.keyboard_state().is_scancode_pressed(KEYS[i]){
+                self.element = i as u8;
+            }
+        }
+
     }
 }
 //random
@@ -289,6 +331,6 @@ impl Random {
 
     fn next_bool_chance(&mut self,chance:f64) -> bool {
         self.next();
-        self.state as f64> u64::MAX as f64 * chance
+        !(self.state as f64> u64::MAX as f64 * chance)
     }
 }
