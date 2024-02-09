@@ -575,8 +575,8 @@ fn print_stuff_on_start(){
     println!();
     println!("controls:");
     println!("space:stop");
-    println!("S:save (on a .smpa file)");
-    println!("drag and drop is working on .smpa files (and .png .jpeg images btw)");
+    println!("S:save (on a .spma file)");
+    println!("drag and drop is working on .spma files (and .png .jpeg images btw)");
     println!("left click: place element");
     println!("mouse wheel: change size of area of influence");
     println!("elements:");
