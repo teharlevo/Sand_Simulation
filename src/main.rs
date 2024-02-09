@@ -56,6 +56,7 @@ const MAX_RADIOS:i32 = 100;
 const RED_CIRCLE_OUT_LINE:i32 = 4;
 
 fn main() {
+    print_stuff_on_start();
     let  mut matrix:Vec<Partical> = vec![]; 
     for _ in 0..MATRIXSIZE {
         matrix.push(Partical{p_type:0,tic:true,intrcact_tic:true});
@@ -565,4 +566,32 @@ fn image_file_to_matrix(path:&str) -> Vec<Partical>{
         }
     }
     return  matrix;
+}
+
+fn print_stuff_on_start(){
+    println!("hi!");
+    println!("welcome to my falling sand simulation");
+    println!("it isnt the best but ok");
+    println!();
+    println!("controls:");
+    println!("space:stop");
+    println!("S:save (on a .smpa file)");
+    println!("drag and drop is working on .smpa files (and .png .jpeg images btw)");
+    println!("left click: place element");
+    println!("mouse wheel: change size of area of influence");
+    println!("elements:");
+    println!("");//nating, sand, water,smoke ,wood, fire,oil,plant,lava,stone,salt,saltwater;
+    println!("0:nothing");
+    println!("1:sand");
+    println!("2:water");
+    println!("3:smoke");
+    println!("4:wood");
+    println!("5:fire");
+    println!("6:oil");
+    println!("7:plant");
+    println!("8:lava");
+    println!("9:stone");
+    println!("10:salt");
+    println!("11:salty water");
+
 }
