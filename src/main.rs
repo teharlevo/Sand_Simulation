@@ -32,40 +32,34 @@ const MAP_START:i32 = WIDTH_I32 * (HEIGHT_I32 - 1);
 const SPRED_ORDER:[i32;8] = [0,1,-1,0,0,-1,1,0];
 
 
-//nating, sand, water,smoke ,wood, fire,oil,plant,lava,stone;
-const ELEMENTS:usize = 10;
+//nating, sand, water,smoke ,wood, fire,oil,plant,lava,stone,salt,saltwater;
+const ELEMENTS:usize = 12;
 //const ELEMENTS_U8:u8 = ELEMENTS as u8;
 
 // need color cange
 const COLORS:[u8;ELEMENTS * 3 + 3] = [0,0,0,194, 178, 128,0,0,255, 132, 136, 132, 149
-,69,32,255,0,0,55,58,54,0,255,0,255,140,0,100,100,100,255,0,0];
+,69,32,255,0,0,55,58,54,0,255,0,255,140,0,100,100,100,255,255,255,212, 241, 249,255,0,0];
 
-const WEIGHTS:[i8;ELEMENTS] = [-100,2,0,-2,100,100,1,100,0,100];
+const WEIGHTS:[i8;ELEMENTS] = [-100,2,-1,-3,100,100,1,100,0,100,2,0];
 
 const FLAMES_NUM:usize = 2;
 const FLAMES_RESOLT:[u8;FLAMES_NUM] = [5,7];
 const FALMEBILTY:[f64;ELEMENTS * FLAMES_NUM] =
-[0.05f64,0.0f64,0.0f64,0.0f64,0.3f64,0.0f64,0.99f64,0.6f64,0.0f64,0.0f64,//catch fire;
- 0.0f64,0.0f64,0.6f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64,//catch plant
+[0.05f64,0.0f64,0.0f64,0.0f64,0.3f64,0.0f64,0.99f64,0.6f64,0.0f64,0.0f64,0.0f64,0.0f64,//catch fire;
+ 0.0f64,0.0f64,0.6f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64,0.0f64//catch plant
  ];
 
-const KEYS:[Scancode;10] = [Scancode::Num0,Scancode::Num1,Scancode::Num2
+const KEYS:[Scancode;ELEMENTS] = [Scancode::Num0,Scancode::Num1,Scancode::Num2
 ,Scancode::Num3,Scancode::Num4,Scancode::Num5
-,Scancode::Num6,Scancode::Num7,Scancode::Num8,Scancode::Num9];
+,Scancode::Num6,Scancode::Num7,Scancode::Num8,Scancode::Num9,Scancode::Q,Scancode::W];
 const MAX_RADIOS:i32 = 100;
 const RED_CIRCLE_OUT_LINE:i32 = 4;
 
 fn main() {
-    //let mut matrix = spma_file_to_image("9503390649809988085.spma");
     let  mut matrix:Vec<Partical> = vec![]; 
     for _ in 0..MATRIXSIZE {
         matrix.push(Partical{p_type:0,tic:true,intrcact_tic:true});
     }
-
-    //for i in 0..WIDTH_I32/100 {
-    //    circle(&mut  matrix,i * 120,HEIGHT_I32/2,70,2);   
-    //}
-    //circle(&mut  matrix,3 * 120,(HEIGHT_I32/4)*1,20,7);   
 
     let mut input_master = Input::new();
 
@@ -110,7 +104,7 @@ fn main() {
                     if file_type.eq("spma"){
                         matrix = spma_file_to_matrix(&filename);
                     }
-                    else if file_type.eq("png") || file_type.eq("jpg"){
+                    else if file_type.eq("png") || file_type.eq("jpg") || file_type.eq("jpeg"){
                         matrix = image_file_to_matrix(&filename);
                     }
                 }
@@ -165,16 +159,27 @@ fn update(matrix:&mut [Partical],input:&mut Input){
                 3 => {let dir ={if random.next_bool(){-1}else{1}};
                 partical_move(&[0, 1, -dir, 1, dir, 1, dir, 0, -dir, 0], matrix, x, y)},
 
-                5 => partical_spred(matrix,0,&mut random, x, y,0.2f64),
+                5 => partical_spred(matrix,0,&mut random, x, y,0.2f64,3),
 
                 6 => {if random.next_bool(){-1}else{1};
                 partical_move(&[0, -1, -dir, -1, dir, -1, dir, 0, -dir, 0], matrix, x, y)},
 
-                7 => partical_spred(matrix,1,&mut random, x, y,0.0f64),
+                7 => partical_spred(matrix,1,&mut random, x, y,0.0f64,0),
 
                 8 => {if random.next_bool(){-1}else{1};
                 partical_move(&[0, -1, -dir, -1, dir, -1, dir, 0, -dir, 0], matrix, x, y);
-                partical_spred(matrix,0,&mut random, x, y,0.0f64)},
+                partical_spred(matrix,0,&mut random, x, y,0.00f64,0);
+
+                partical_intract(matrix,9,0.5f64
+                    ,2,3,0.5f64,&mut random,x,y)},
+
+                10 => {let dir ={if random.next_bool(){-1}else{1}};
+                partical_move(&[0, -1, -dir, -1, dir, -1], matrix, x, y);
+                partical_intract(matrix,11,0.9f64
+                    ,2,11,0.9f64,&mut random,x,y)},
+
+                11 => {if random.next_bool(){-1}else{1};
+                partical_move(&[0, -1, -dir, -1, dir, -1, dir, 0, -dir, 0], matrix, x, y)},
                 _ => {}
             }
         }
@@ -219,7 +224,7 @@ fn partical_move(order:&[i32],matrix:&mut [Partical],x:i32,y:i32){
 }
 
 fn partical_spred(matrix:&mut [Partical],flameabilty_type:usize,r:&mut Random,x:i32,y:i32
-    ,chance:f64){
+    ,chance:f64,end:u8){
 
     let point = pos_to_array_paint(x, y);
     if matrix[point].tic{
@@ -238,7 +243,36 @@ fn partical_spred(matrix:&mut [Partical],flameabilty_type:usize,r:&mut Random,x:
         }
     }
     if r.next_bool_chance(chance){
-        matrix[pos_to_array_paint(x, y)].p_type = 3;
+        matrix[pos_to_array_paint(x, y)].p_type = end;
+    }
+}
+
+fn partical_intract(matrix:&mut [Partical],you_resolt:u8,you_chance:f64,he:u8,he_resolt:u8,he_chance:f64
+    ,r:&mut Random,x:i32,y:i32){
+
+    let point = pos_to_array_paint(x, y);
+    if matrix[point].intrcact_tic{
+        return;
+    }
+    for i in 0..SPRED_ORDER.len()/2 { 
+        let new_x = x + SPRED_ORDER[i * 2];
+        let new_y = y + SPRED_ORDER[i * 2 + 1];
+        let intercting_point = pos_to_array_paint(new_x, new_y);
+
+        if legal_poaint(new_x, new_y) && matrix[intercting_point].p_type == he{
+
+            if r.next_bool_chance(he_chance){
+                matrix[intercting_point].p_type = he_resolt;
+                matrix[intercting_point].tic = true;
+                matrix[intercting_point].intrcact_tic = true;
+            }
+
+            if r.next_bool_chance(you_chance){
+                matrix[point].p_type = you_resolt;
+                matrix[point].tic = true;
+                matrix[point].intrcact_tic = true;
+            }
+        }
     }
 
 }
